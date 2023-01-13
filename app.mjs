@@ -10,6 +10,11 @@ import { expressMiddleware } from "@apollo/server/express4";
 import cors from "cors";
 import dotenv from "dotenv";
 import fakeData from "./fakeData/index.js";
+import mongoose from "mongoose";
+import { resolvers } from "./src/v1/resolvers/index.js";
+import { typeDefs } from "./src/v1/schema/index.js";
+import './firebaseConfig.js'
+import {getAuth} from 'firebase-admin/auth'
 const app = express();
 dotenv.config();
 
@@ -56,55 +61,57 @@ const { PORT } = process.env;
 
 const httpServer = http.createServer(app);
 
-const typeDefs = `#graphql
-type Folder {
-    id: String,
-    name: String,
-    createdAt: String,
-    author: Author
-}
 
-type Author {
-    id: String
-    name: String
-}
 
-type Query {
-    folders: [Folder]
-}
-`;
-const resolvers = {
-  Query: {
-    folders: () => {
-      return fakeData.folders ;
-    },
-  },
 
-  Folder: {
-    author: (parent, args) => {
-        console.log({parent,args})
-        const authorId = parent.authorId;
-      return fakeData.author.find(author => author.id === authorId);
-    },
-  },
-};
+
+const URI = process.env.MONGO_URI;
+
 
 const server = new ApolloServer({
   typeDefs,
   resolvers,
   plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
 });
+await server.start();
+
+const authorizationJWT = async (req,res,next) => {
+    const authorizationHeader = req.headers.authorization;
+    if(authorizationHeader){
+      const accessToken = authorizationHeader.split(' ')[1];
+       getAuth().verifyIdToken(accessToken).then(decodedToken=>{
+        req.uid = decodedToken.uid
+        next();
+      }).catch(err=>{
+        return res.status(403).json({message:'Forbidden'})
+      })
+    }else{
+      return res.status(401).json({message:'Unauthorized'})
+    }
+}
 
 // const server = app.listen( PORT, () => {
 //     console.log(`WSV start with port ${PORT}`);
 // })
 
-await server.start();
 
-app.use(cors(), bodyParser.json(), expressMiddleware(server));
 
-await new Promise((resolve) => httpServer.listen({ port: PORT }, resolve));
-console.log(`WSV start with port ${PORT}`);
+app.use(cors(),authorizationJWT, bodyParser.json(), expressMiddleware(server, {
+  context: async ({req, res})=>{
+    console.log(req.uid);
+    return {uid: req.uid}
+  }
+}));
+mongoose.set('strictQuery', false);
+mongoose.connect(URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(async ()=>{
+  await new Promise((resolve) => httpServer.listen({ port: PORT }, resolve));
+  console.log(`WSV start with port ${PORT}`);
+})
+
+
 
 // process.on('SIGINT', () => {
 //     server.close( () => console.log(`exits server express`))
