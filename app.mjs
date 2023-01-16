@@ -83,6 +83,7 @@ const authorizationJWT = async (req,res,next) => {
         req.uid = decodedToken.uid
         next();
       }).catch(err=>{
+        console.log(err);
         return res.status(403).json({message:'Forbidden'})
       })
     }else{
