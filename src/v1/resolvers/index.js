@@ -76,5 +76,9 @@ export const resolvers = {
       const deleteNotebyFolder = await NoteModel.deleteMany({folderId:args.id})
       return deleteNotebyFolder
     },
+    deleteNoteById: async (parent, args, context) => {
+      const deleteNote = await NoteModel.deleteOne({_id:args.id})
+      return deleteNote
+    },
   },
 };

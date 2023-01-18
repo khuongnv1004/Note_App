@@ -29,6 +29,7 @@ type Mutation {
     addNote(content:String!, folderId:ID!):Note,
     updateNote(id: String!, content:String!):Note,
     deleteFolder(id:String!):Folder,
-    deleteNotebyFolder(id:String!):Note
+    deleteNotebyFolder(id:String!):Note,
+    deleteNoteById(id:String!):Note
 }
 `;
